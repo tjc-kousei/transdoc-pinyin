@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+ruby {
+  ruby-align: center;
+}
+rt {
+  font-size: 0.7em;
+  color: #64748b;
+}
+
+.pdf-content-wrapper {
+  background: white;
+  padding: 2rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  border-radius: 0.5rem;
+  min-height: 400px;
+}
+
+@media print {
+  .pdf-content-wrapper {
+    box-shadow: none;
+    padding: 0;
+  }
+}
