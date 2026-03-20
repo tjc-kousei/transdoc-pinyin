@@ -3,9 +3,12 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-slate-50 text-slate-800 antialiased;
+  html, body {
+    @apply h-full w-full bg-slate-50 text-slate-800 antialiased dark:bg-slate-900 dark:text-slate-200 transition-colors duration-200;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  #root {
+    @apply min-h-full flex flex-col;
   }
 }
 
@@ -13,8 +16,12 @@ ruby {
   ruby-align: center;
 }
 rt {
-  font-size: 0.7em;
+  font-size: 0.65em;
   color: #64748b;
+}
+
+.dark rt {
+  color: #94a3b8;
 }
 
 .pdf-content-wrapper {
@@ -25,9 +32,21 @@ rt {
   min-height: 400px;
 }
 
+.dark .pdf-content-wrapper {
+  background: #1e293b;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+  color: #f1f5f9;
+}
+
 @media print {
-  .pdf-content-wrapper {
-    box-shadow: none;
-    padding: 0;
+  body, .dark body {
+    background: white !important;
+    color: black !important;
+  }
+  .pdf-content-wrapper, .dark .pdf-content-wrapper {
+    background: white !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: black !important;
   }
 }

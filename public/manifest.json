@@ -1,0 +1,15 @@
+{
+  "name": "TransDoc Pinyin",
+  "short_name": "TransDoc",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "./icon-512.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}
