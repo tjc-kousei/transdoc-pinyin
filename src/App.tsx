@@ -4,6 +4,7 @@ import toast, { Toaster } from 'react-hot-toast';
 
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
 
 interface AIModel {
   id: string;
@@ -98,17 +99,17 @@ export default function App() {
 【指示】
 1. 与えられた日本語テキストを、自然で流暢な「中国語（簡体字）」に翻訳してください。
 2. 【重要】元の日本語テキストは絶対に出力・表示しないでください。出力は「翻訳後の中国語」のみにしてください。
-3. 翻訳した中国語テキストの「すべての文字（漢字および語）」に対して、HTMLの <ruby> タグと <rt> タグを用いて拼音（ピンイン）を振ってください。
-4. 【多音字の処理】中国語には文脈で発音が変わる多音字があります。必ず文脈を深く理解し、その単語や文脈において最も適切な発音（拼音）を選択してルビを振ってください。
-5. 文字は一つずつ個別の <ruby> タグで単独に囲んでください。
-6. 【超重要】タグとタグの間に、不要な空白（スペース）や改行を絶対に入れないでください。
-7. 句読点（、。！？）や記号には決してルビを振らず、そのまま出力してください。
-8. 出力は「純粋なHTMLコードのみ」とし、Markdownのコードブロック（\`\`\`html など）や説明文、前置き文は一切追加しないでください。
+3. 翻訳した中国語テキストの「すべての漢字」の直後に、その漢字の拼音（ピンイン）を中括弧 {} で囲んで配置してください。
+4. 【多音字の処理】中国語には文脈で発音が変わる多音字があります。必ず文脈を深く理解し、その単語や文脈において最も適切な発音（拼音）を選択してください。
+5. 漢字は一つずつ個別に {} を使って拼音を振ってください。（例: 中国 → 中{zhōng}国{guó}）
+6. 句読点（、。！？）や記号、数字やアルファベットには決して拼音を振らず、そのまま出力してください。
+7. 【超重要】文字と文字、または文字と {} の間に、不要な空白（スペース）や改行を絶対に入れないでください。
+8. 出力は「純粋な結果テキストのみ」とし、Markdownのコードブロック（\`\`\` など）や説明文、前置き文は一切追加しないでください。
 
 【出力形式の例】
-（悪い例 - 元の日本語が混ざっている）：<ruby>中<rt>zhōng</rt></ruby><ruby>国<rt>guó</rt></ruby>です。
-（悪い例 - 空白が入っている）：<ruby>中<rt>zhōng</rt></ruby> <ruby>国<rt>guó</rt></ruby>
-（良い例 - 中国語のみで空白がない）：<ruby>中<rt>zhōng</rt></ruby><ruby>国<rt>guó</rt></ruby>，<ruby>是<rt>shì</rt></ruby>...
+（悪い例 - 元の日本語が混ざっている）：中{zhōng}国{guó}です。
+（悪い例 - 空白が入っている）：中{zhōng} 国{guó}
+（良い例 - 中国語のみで空白がない）：中{zhōng}国{guó}，是{shì}...
 
 【入力テキスト】
 ${inputText.trim()}`;
@@ -126,10 +127,13 @@ ${inputText.trim()}`;
       
       // クリーニング処理: Markdownの除去
       generatedText = generatedText.replace(/^[\s\n]*\`\`\`(html)?/i, '').replace(/\`\`\`[\s\n]*$/i, '').trim();
-      // クリーニング処理: </ruby> と <ruby> の間にある不自然な余白や改行を強制的に削除
-      generatedText = generatedText.replace(/<\/ruby>\s+<ruby>/gi, '</ruby><ruby>');
+      // クリーニング処理: 文字と {pinyin} の間、または } と次の文字の前にある不自然な余白や改行を強制的に削除
+      generatedText = generatedText.replace(/\}\s+/g, '}').replace(/\s+\{/g, '{');
+      
+      // 変換処理: 漢字{pinyin} フォーマットをHTMLの <ruby> タグに置換する
+      const processedHtml = generatedText.replace(/(.)\{([^\}]+)\}/g, '<ruby>$1<rt>$2</rt></ruby>');
 
-      setHtmlResult(generatedText);
+      setHtmlResult(processedHtml);
       const endTime = performance.now();
       const elapsedMs = endTime - startTime;
       setExecutionTime(elapsedMs);
@@ -166,6 +170,40 @@ ${inputText.trim()}`;
   const copyText = () => {
     if (!resultRef.current) return;
     navigator.clipboard.writeText(resultRef.current.innerText).then(() => toast.success('テキストをコピーしました'));
+  };
+
+  const copyPlainChinese = () => {
+    if (!htmlResult) return;
+    // <rt>タグとその中身を削除し、さらに残りのHTMLタグを取り除くことでプレーンな中国語テキストを得る
+    const plainText = htmlResult
+      .replace(/<rt>.*?<\/rt>/g, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+    
+    // innerTextだけだと改行が消える場合があるので、br要素も改行に戻す必要がある場合は
+    // .replace(/<br\s*[\/]?>/gi, '\n') をタグ消去の前に入れるなど対応（今回はテキストで \n が維持されている前提）
+    navigator.clipboard.writeText(plainText).then(() => toast.success('中国語（ルビなし）をコピーしました'));
+  };
+
+  const exportImage = async () => {
+    if (!htmlResult) { toast.error('出力する結果がありません'); return; }
+    const element = document.getElementById('pdf-content');
+    if (!element) return;
+    
+    toast.success('画像を生成しています...');
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const link = document.createElement('a');
+      link.download = 'translated_pinyin.jpg';
+      link.href = imgData;
+      link.click();
+      toast.success('画像を保存しました');
+    } catch (err) {
+      toast.error('画像の生成に失敗しました');
+    }
   };
 
   return (
@@ -235,9 +273,13 @@ ${inputText.trim()}`;
                 </span>
               )}
             </div>
-            <div className="flex space-x-2">
-              <button onClick={copyText} className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-1" title="テキストをコピー"><Copy className="h-5 w-5" /></button>
+            <div className="flex space-x-2 flex-wrap justify-end gap-y-2">
+              <button onClick={copyPlainChinese} className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-1 text-sm font-medium border border-slate-200 dark:border-slate-700 rounded-md px-2" title="中国語のみコピー">中</button>
+              <button onClick={copyText} className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-1" title="表示テキスト全体をコピー"><Copy className="h-5 w-5" /></button>
               <button onClick={copyHtml} className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-1" title="HTMLをコピー"><FileText className="h-5 w-5" /></button>
+              <button onClick={exportImage} className="text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-800 p-1 px-3 rounded-md transition flex items-center font-medium text-sm">
+                画像保存
+              </button>
               <button onClick={exportPDF} className="text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-800 p-1 px-3 rounded-md transition flex items-center font-medium text-sm">
                 <Download className="h-4 w-4 mr-1" /> PDF
               </button>
@@ -249,7 +291,7 @@ ${inputText.trim()}`;
             )}
             <div 
               id="pdf-content" ref={resultRef}
-              className="pdf-content-wrapper text-lg leading-loose break-words"
+              className="pdf-content-wrapper text-lg leading-loose break-words whitespace-pre-wrap"
               dangerouslySetInnerHTML={{ __html: htmlResult }}
             >
             </div>
