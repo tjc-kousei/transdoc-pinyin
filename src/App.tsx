@@ -37,7 +37,7 @@ export default function App() {
 
     const fetchModels = async () => {
       try {
-        const res = await fetch('https://runaaa0712.weblike.jp/MyApp/available-api/api.php');
+        const res = await fetch('https://ss314029.stars.ne.jp/available-api/api.php');
         if (!res.ok) throw new Error('APIモデルの取得に失敗しました');
         const data = await res.json();
         if (data.status === 'success' && data.models) {
